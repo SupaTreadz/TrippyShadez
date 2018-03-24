@@ -21,10 +21,10 @@ int pastBrightness = 0;
 long debouncing_time = 15; //Debouncing Time in Milliseconds
 volatile unsigned long last_micros;
 unsigned int sample;
-volatile byte mode = 8;
+volatile byte mode = 4;
 volatile boolean trigger = false;
 unsigned int lowBound = 100;
-
+boolean forward = true;
 // pixel orders
 uint32_t lefthalf[] = {28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0};
 uint32_t righthalf[] = {47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,48,49,50,51,52,53,54,55,56,57};
@@ -58,15 +58,11 @@ void loop()
   }
   if(mode==0) 
   {
-    //SoundReactive(10);
     SoundReactiveSparkle(10);
-    //SoundReactiveColor(10);
   }
   else if(mode==1) 
   {
     SoundReactive(10);
-    //SoundReactiveBrightness(10);
-    //SoundReactiveColor(10);
   } 
   else if(mode==2) 
   {
@@ -78,7 +74,8 @@ void loop()
   } 
   else if(mode==4)
   {
-    Snake(15);
+    Travel(15);
+    //Snake(15);
   }
   else if(mode==5)
   {
@@ -117,10 +114,40 @@ void Interrupt()
   mode++;
 }
 
+void Travel(int wait) 
+{
+  for (int i = 0; i <= 28; i++) 
+  {
+    if(forward)
+    {
+      pixels.setPixelColor(lefthalf[i],listColors[random(0,8)]);
+      pixels.setPixelColor(lefthalf[i-1],blank);
+      if(i==28)
+      {
+        forward=false;
+        i=0;  
+      }
+    }
+    else
+    {
+      pixels.setPixelColor(righthalf[i],listColors[random(0,8)]);
+      pixels.setPixelColor(righthalf[i-1],blank);
+    }
+    pixels.show();
+    if(trigger)
+    {
+      trigger = false;
+      return;
+    }
+    delay(wait);
+  }
+  forward=true;
+} 
+
 void AccelSlide(int wait) 
 {
-  int maxZ = 411;
-  int minZ = 275;
+  int maxZ = 400;
+  int minZ = 290;
 
   int sample = analogRead(AccelPin);
   //Serial.println(sample);
@@ -145,18 +172,20 @@ void AccelSlide(int wait)
       pixels.setPixelColor(lefthalf[i],blank);
       pixels.setPixelColor(righthalf[i],blank);  
     }
+    if(trigger)
+    {
+      trigger = false;
+      return;
+    }
     
   }
-    
-  delay(wait);
   allSet(blank);
 } 
 
 void Accel(int wait) 
 {
   int peakToPeak = getPeakToPeakAccel();
-  //Serial.println(peakToPeak);
-  int lightPixels = map(peakToPeak, 0, 100, 0, 28);
+  int lightPixels = map(peakToPeak, 0, 60, 0, 28);
 
   for (int i = 0; i <= lightPixels; i++) 
   {
@@ -168,7 +197,6 @@ void Accel(int wait)
       trigger = false;
       return;
     }
-    delay(wait);
   }
   allSet(blank);
 } 
