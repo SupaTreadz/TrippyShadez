@@ -17,8 +17,8 @@
 #define DATA_PIN    6
 #define LED_TYPE    WS2812
 #define COLOR_ORDER GRB
-#define NUM_LEDS    58
-#define MIRROR      29
+#define NUM_LEDS    65
+#define MIRROR      32
 
 CRGBArray<NUM_LEDS> leds;
 
@@ -47,32 +47,32 @@ volatile bool trigger = false;
 unsigned int lowBound = 100;
 bool forward = true;
 
-// pixel orders
-uint32_t lefthalf[] = {28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0};
-uint32_t righthalf[] = {47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,48,49,50,51,52,53,54,55,56,57};
+// pixel orders (these are for <=v4 only)
+uint32_t lefthalf[] = {32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0};
+uint32_t righthalf[] = {34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65};
 
 DEFINE_GRADIENT_PALETTE( example_gp ) {
 
-0, 255,0,0, //Red
+0, 0,0,0, //Black
 
-36, 255,128,0, //Orange
+36, 255,0,0, //Red
 
-72, 255,255,0, //Yellow
+72, 255,128,0, //Orange
 
-108, 0,255,0, //Green
+108, 255,255,0, //Yellow
 
-144, 0,0,255, //Blue
+144, 0,255,0, //Green
 
-180, 127,0,255, //Indigo
+180, 0,0,255, //Blue
 
 216, 255,0,255, //Violet
 
 255, 255,255,255 }; //White
 
-//CRGBPalette16 gPal;//for fire mode
 CRGBPalette16 gPal = example_gp;
 
-//flconverted
+CRGBPalette16 gPal2;
+
 void setup() 
 {
   //delay(3000);
@@ -80,15 +80,14 @@ void setup()
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 20000);
 
-
    // ----------- Fire with pallete code --------------------
   // This first palette is the basic 'black body radiation' colors,
   // which run from black to red to bright yellow to white.
-  //gPal = HeatColors_p;
+  gPal2 = HeatColors_p;
   
   // These are other ways to set up the color palette for the 'fire'.
   // First, a gradient from black to red to yellow to white -- similar to HeatColors_p
-  //   gPal = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::Yellow, CRGB::White);
+  //gPal2 = CRGBPalette16( CRGB::Black, CRGB::Red, CRGB::Yellow, CRGB::White);
   
   // Second, this palette is like the heat colors, but blue/aqua instead of red/yellow
   //gPal = CRGBPalette16( CRGB::Green, CRGB::Red, CRGB::White,  CRGB::Blue);
@@ -136,7 +135,7 @@ void loop()
   }
   else if(mode==1) 
   {
-    SoundReactiveSparkle(0); //not working, not sure why
+    SoundReactiveSparkle(0);
   }
   else if(mode==2) 
   {
@@ -145,19 +144,20 @@ void loop()
   else if(mode==3) 
   {
     //Fire(55,120,15);
-    Fire2012WithPalette(75,120,15,1);
-  } 
+    Fire2012WithPalette(120,120,15,1); //rainbow fire - mirrored
+  }
   else if(mode==4) 
   {
-    rainbow(20);
+    Fire2012WithPalette2(120,120,15,1); //regular fire - mirroed
   } 
   else if(mode==5)
   {
-    SimpleWave(5,2,15); //change to random hue instead of just RGB?
+    rainbow(20);
   }
   else if(mode==6)
   {
-    StrangerThings(15,100);
+    SimpleWave(5,2,15); //change to random hue instead of just RGB?
+    //StrangerThings(15,100);
   }
   else if(mode==7)
   {
@@ -596,6 +596,52 @@ void Fire2012WithPalette(int COOLING, int SPARKING, int SpeedDelay, int Mirror)
       // for best results with color palettes.
       uint8_t colorindex = scale8( heat[j], 240);
       CRGB color = ColorFromPalette( gPal, colorindex);
+      int pixelnumber;
+      if( gReverseDirection ) 
+      {
+        pixelnumber = (NUM_LEDS-1) - j;
+      } 
+      else 
+      {
+        pixelnumber = j;
+      }
+      leds[pixelnumber+MIRROR] = color;
+      leds[MIRROR-pixelnumber] = color;
+    }
+    delay(SpeedDelay);
+}
+
+void Fire2012WithPalette2(int COOLING, int SPARKING, int SpeedDelay, int Mirror)
+{
+// Array of temperature readings at each simulation cell
+  static uint8_t heat[NUM_LEDS];
+
+  // Step 1.  Cool down every cell a little
+    for( int i = 0; i < NUM_LEDS; i++) 
+    {
+      heat[i] = qsub8( heat[i],  random8(0, ((COOLING * 10) / NUM_LEDS) + 2));
+    }
+  
+    // Step 2.  Heat from each cell drifts 'up' and diffuses a little
+    for( int k= NUM_LEDS - 1; k >= 2; k--) 
+    {
+      heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 2] ) / 3;
+    }
+    
+    // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
+    if( random8() < SPARKING ) 
+    {
+      int y = random8(7);
+      heat[y] = qadd8( heat[y], random8(160,255) );
+    }
+
+    // Step 4.  Map from heat cells to LED colors
+    for( int j = 0; j < NUM_LEDS - MIRROR; j++) 
+    {
+      // Scale the heat value from 0-255 down to 0-240
+      // for best results with color palettes.
+      uint8_t colorindex = scale8( heat[j], 240);
+      CRGB color = ColorFromPalette( gPal2, colorindex);
       int pixelnumber;
       if( gReverseDirection ) 
       {
