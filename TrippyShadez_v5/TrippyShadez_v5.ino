@@ -8,7 +8,6 @@
 //It probably wont tell you when it's finished, but the code should eventually upload, there will still likely be an error in the IDE. Sometimes it does say done uploading.
 //wait until LEDs light up to indicate upload complete? if it doesnt tell you
 
-
 #define AccelPin A3
 #define MicPin A4
 #define PotPin A5
@@ -75,8 +74,7 @@ CRGBPalette16 gPal2;
 
 void setup() 
 {
-  //delay(3000);
-  //FastLED.addLeds<NEOPIXEL, NeopixelPin>(leds, NUM_LEDS);
+  delay(3000);
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setMaxPowerInVoltsAndMilliamps(5, 20000);
 
@@ -116,7 +114,7 @@ void loop()
     uint16_t level = uint16_t(map(brightness, 0, 1023, 0, 100));
     FastLED.setBrightness(level);
   }
-
+  
   if(mode==0)
   {
     FastLED.delay(1000/FRAMES_PER_SECOND); //add this to make twinle faster?
@@ -133,14 +131,14 @@ void loop()
     drawTwinkles(leds);
     FastLED.show();
   }
-  else if(mode==1) 
+  else if(mode==1)
   {
     SoundReactiveSparkle(0);
   }
   else if(mode==2) 
   {
-    SoundReactive(10);
-  } 
+    SoundReactive(5);
+  }
   else if(mode==3) 
   {
     //Fire(55,120,15);
@@ -156,23 +154,23 @@ void loop()
   }
   else if(mode==6)
   {
-    SimpleWave(5,2,15); //change to random hue instead of just RGB?
+    SimpleWave(5,2,50); //change to random hue instead of just RGB?
     //StrangerThings(15,100);
   }
   else if(mode==7)
   {
-    Accel(10);
+    Accel(0);
   }
   else if(mode==8)
   {
-    AccelSlide(10); //very cool
+    AccelSlide(0); //very cool
   }
   else 
   {
     mode = 0;
   }
+  
   pastBrightness = brightness;
-  //fill_solid(leds, NUM_LEDS, CRGB::Black);
   FastLED.show();
 }
 //no change for FL
@@ -226,6 +224,7 @@ void SoundReactiveSparkle(int wait)
     }
 
     // turn the rest of the lights off
+    
     for (int i = 0; i < NUM_LEDS; i++) 
     {
       if (isOn[i] == 0) 
@@ -249,6 +248,27 @@ void SoundReactiveSparkle(int wait)
     FastLED.show();
   }
 }
+
+void SoundReactive(int wait) 
+{
+  int peakToPeak = getPeakToPeak();
+  int soundLevel = map(peakToPeak,0,900,32,0);
+  Serial.println(soundLevel);
+
+  for (int i = 32; i >= soundLevel; i--) //32 is the size of the half LEDs array, don't use sizeof function though, it is too slow
+  {
+    leds[lefthalf[i]] = CHSV(random8(),255,255);
+    leds[righthalf[i]] = CHSV(random8(),255,255);
+    FastLED.show();
+    if(trigger)
+    {
+      trigger = false;
+      return;
+    }
+    delay(wait);
+  }
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+} 
 
 //no change for FL
 int getPeakToPeakAccel() 
@@ -290,7 +310,7 @@ int getPeakToPeak()
   unsigned int signalMin = 1024;
 
   //50 is the same size, 50ms
-  while (millis() - startMillis < 50) 
+  while (millis() - startMillis < 25) 
   {
     sample = analogRead(MicPin); 
     if (sample < 1024) 
@@ -314,7 +334,7 @@ int getPeakToPeak()
 void Accel(int wait) 
 {
   int peakToPeak = getPeakToPeakAccel();
-  int lightPixels = map(peakToPeak, 0, 60, 0, 28);
+  int lightPixels = map(peakToPeak, 0, NUM_LEDS, 0, 32);
 
   for (int i = 0; i <= lightPixels; i++) 
   {
@@ -332,19 +352,48 @@ void Accel(int wait)
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 } 
 
+void AccelWalk(int wait) 
+{
+  int peakToPeak = getPeakToPeakAccel();
+  int lightPixels = map(peakToPeak, 0, NUM_LEDS, 16, 0);
+  
+  
+  for (int i = 16; i <= 32 - lightPixels; i++) 
+  {
+    leds[lefthalf[i]] = CHSV(random8(),255,255);
+    leds[righthalf[i]] = CHSV(random8(),255,255);
+    FastLED.show();  
+    if(trigger)
+    {
+      trigger = false;
+      return;
+    }
+  }
+  for (int j = 16; j >= lightPixels; j--) 
+  {
+    leds[lefthalf[j]] = CHSV(random8(),255,255);
+    leds[righthalf[j]] = CHSV(random8(),255,255);
+    FastLED.show();  
+    if(trigger)
+    {
+      trigger = false;
+      return;
+    }
+  }
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
+} 
+
 //done?
 void Travel(int wait) 
 {
-  for (int i = 0; i <= 28; i++) 
+  for (int i = 0; i <= 32; i++) 
   {
     if(forward)
     {
       leds[lefthalf[i]] = CHSV(random8(),255,255);
       leds[lefthalf[i-1]] = CRGB::Black;
-      
-      //pixels.setPixelColor(lefthalf[i],CHSV(random8(),255,255)]);
-      //pixels.setPixelColor(lefthalf[i-1],CRGB::Black);
-      if(i==28)
+
+      if(i==32)
       {
         forward=false;
         i=0;  
@@ -352,12 +401,8 @@ void Travel(int wait)
     }
     else
     {
-
       leds[righthalf[i]] = CHSV(random8(),255,255);
-      leds[righthalf[i-1]] = CRGB::Black;
-      
-      //pixels.setPixelColor(righthalf[i],CHSV(random8(),255,255)]);
-      //pixels.setPixelColor(righthalf[i-1],CRGB::Black);
+      leds[righthalf[i-1]] = CRGB::Black;   
     }
     FastLED.show();
     if(trigger)
@@ -377,7 +422,7 @@ void AccelSlide(int wait)
 
   int sample = analogRead(AccelPin);
   //Serial.println(sample);
-  int blobPosition = map(sample, minZ, maxZ, 27, 1);
+  int blobPosition = map(sample, minZ, maxZ, 32, 1);
 
   leds[lefthalf[blobPosition]] = CHSV(random8(),255,255);
   leds[righthalf[blobPosition]] = CHSV(random8(),255,255);
@@ -387,7 +432,7 @@ void AccelSlide(int wait)
   leds[righthalf[blobPosition-1]] = CHSV(random8(),255,255);
   FastLED.show();
 
-  for (int i = 0; i <= 28; i++) 
+  for (int i = 0; i <= 32; i++) 
   {
     if(i==blobPosition || i==blobPosition+1 || i==blobPosition-1)
     {
@@ -407,17 +452,20 @@ void AccelSlide(int wait)
   fill_solid(leds, NUM_LEDS, CRGB::Black);
 } 
 
-void SimpleWave(float rate,int cycles, int wait) {
-   float pos=0.0;
+void SimpleWave(float rate,int cycles, int wait) 
+{
+  float pos=0.0;
   // cycle through x times
   for(int x=0; x<cycles; x++)
   {
     pos = pos+rate;
-    for(int i=0; i<NUM_LEDS; i++) {
+    for(int i=0; i<NUM_LEDS; i++) 
+    {
       // sine wave, 3 offset waves make a rainbow!
-      float level = sin(i+pos) * 127 + 128;
+      //float level = sin(i+pos) * 127 + 128;
       // set color level 
-      leds[i] = CHSV((int)level*(random(0,11)/10),255,255);
+      //leds[i] = CHSV((int)level*(random(0,11)/10),255,255);
+      leds[i] = CHSV(random8(),255,255);
       if(trigger)
       {
         trigger = false;
@@ -428,27 +476,6 @@ void SimpleWave(float rate,int cycles, int wait) {
     delay(wait);
   }
 }
-
-void SoundReactive(int wait) 
-{
-  int peakToPeak = getPeakToPeak();
-  int soundLevel = map(peakToPeak,0,900,28,0);
-  Serial.println(soundLevel);
-
-  for (int i = 28; i >= soundLevel; i--) 
-  {
-    leds[lefthalf[i]] = CHSV(random8(),255,255);
-    leds[righthalf[i]] = CHSV(random8(),255,255);
-    FastLED.show();
-    if(trigger)
-    {
-      trigger = false;
-      return;
-    }
-    delay(wait);
-  }
-  fill_solid(leds, NUM_LEDS, CRGB::Black);
-} 
 
 void CylonBounce(int EyeSize, int SpeedDelay, int ReturnDelay)
 {
